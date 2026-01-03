@@ -107,3 +107,4 @@ Required diagrams are under `docs/images/`:
 Source SVGs are also included for crisp zooming:
 - `architecture.svg`
 - `er-diagram.svg`
+## Setup Instructions
