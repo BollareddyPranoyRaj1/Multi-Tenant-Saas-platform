@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Multi-Tenant SaaS Platform</title>
+
+    <!--
+      GitHub Pages SPA deep-link support.
+      If a user refreshes /projects/123, GH Pages serves 404.html.
+      Our 404.html redirects to /<repo>/?p=/projects/123 ...
+      This script restores the original path client-side.
+    -->
+    <script type="text/javascript">
+        (function(l) {
+            if (l.search && l.search.startsWith('?p=')) {
+                var params = new URLSearchParams(l.search);
+                var p = params.get('p') || '/';
+                var q = params.get('q');
+                var restoredPath = p;
+                if (q) restoredPath += '?' + q.replace(/~and~/g, '&');
+                restoredPath += l.hash || '';
+                // Preserve the base path (project site subpath) we're currently hosted under.
+                // Example: pathname is "/Multi-tenant-saas-platform/"; we want "/Multi-tenant-saas-platform/dashboard".
+                var basePath = (l.pathname || '').replace(/\/$/, '');
+                window.history.replaceState(null, '', basePath + restoredPath);
+            }
+        })(window.location);
+    </script>
+</head>
+
+<body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+</body>
+
+</html>

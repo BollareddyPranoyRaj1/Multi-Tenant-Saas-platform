@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520">
+  <style>
+    .box { fill: #ffffff; stroke: #111827; stroke-width: 2; }
+    .title { font: 700 18px sans-serif; fill: #111827; }
+    .label { font: 13px sans-serif; fill: #111827; }
+    .small { font: 12px sans-serif; fill: #374151; }
+    .arrow { stroke: #111827; stroke-width: 2; marker-end: url(#m); }
+  </style>
+
+  <defs>
+    <marker id="m" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#111827" />
+    </marker>
+  </defs>
+
+  <text x="30" y="40" class="title">Entity Relationships (simplified)</text>
+
+  <!-- Tenants -->
+  <rect x="60" y="80" width="220" height="120" rx="10" class="box" />
+  <text x="80" y="110" class="label">tenants</text>
+  <text x="80" y="135" class="small">id (PK)</text>
+  <text x="80" y="155" class="small">subdomain (unique)</text>
+  <text x="80" y="175" class="small">subscription_plan, limits</text>
+
+  <!-- Users -->
+  <rect x="340" y="80" width="220" height="140" rx="10" class="box" />
+  <text x="360" y="110" class="label">users</text>
+  <text x="360" y="135" class="small">id (PK)</text>
+  <text x="360" y="155" class="small">tenant_id (FK → tenants.id, nullable for super_admin)</text>
+  <text x="360" y="175" class="small">email, role</text>
+  <text x="360" y="195" class="small">password_hash</text>
+
+  <!-- Projects -->
+  <rect x="60" y="260" width="220" height="130" rx="10" class="box" />
+  <text x="80" y="290" class="label">projects</text>
+  <text x="80" y="315" class="small">id (PK)</text>
+  <text x="80" y="335" class="small">tenant_id (FK → tenants.id)</text>
+  <text x="80" y="355" class="small">created_by (FK → users.id)</text>
+
+  <!-- Tasks -->
+  <rect x="340" y="280" width="220" height="150" rx="10" class="box" />
+  <text x="360" y="310" class="label">tasks</text>
+  <text x="360" y="335" class="small">id (PK)</text>
+  <text x="360" y="355" class="small">tenant_id (FK → tenants.id)</text>
+  <text x="360" y="375" class="small">project_id (FK → projects.id)</text>
+  <text x="360" y="395" class="small">assigned_to (FK → users.id)</text>
+  <text x="360" y="415" class="small">status, priority</text>
+
+  <!-- Audit Logs -->
+  <rect x="620" y="200" width="220" height="140" rx="10" class="box" />
+  <text x="640" y="230" class="label">audit_logs</text>
+  <text x="640" y="255" class="small">id (PK)</text>
+  <text x="640" y="275" class="small">tenant_id (nullable)</text>
+  <text x="640" y="295" class="small">user_id (nullable)</text>
+  <text x="640" y="315" class="small">action, entity_type, entity_id</text>
+
+  <!-- Arrows -->
+  <line x1="280" y1="140" x2="340" y2="140" class="arrow" />
+  <text x="285" y="130" class="small">1 → many</text>
+
+  <line x1="170" y1="200" x2="170" y2="260" class="arrow" />
+
+  <line x1="280" y1="330" x2="340" y2="350" class="arrow" />
+
+  <line x1="560" y1="140" x2="620" y2="240" class="arrow" />
+</svg>

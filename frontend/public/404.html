@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redirecting…</title>
+    <meta http-equiv="refresh" content="0;url=./" />
+    <script type="text/javascript">
+        // GitHub Pages SPA fallback (Project Pages)
+        // Redirect to: /<repo>/?p=/original/path&q=original=query#hash
+        // segmentCount = 1 for /<repo>/...
+        (function() {
+            var segmentCount = 1;
+            var l = window.location;
+            var pathSegments = l.pathname.split('/');
+
+            var basePath = pathSegments.slice(0, 1 + segmentCount).join('/');
+            var restPath = pathSegments.slice(1 + segmentCount).join('/');
+
+            var redirectUrl = l.protocol + '//' + l.host + basePath + '/?p=/' +
+                restPath.replace(/&/g, '~and~');
+
+            if (l.search && l.search.length > 1) {
+                redirectUrl += '&q=' + l.search.slice(1).replace(/&/g, '~and~');
+            }
+
+            redirectUrl += l.hash || '';
+            l.replace(redirectUrl);
+        })();
+    </script>
+</head>
+
+<body>
+    <noscript>
+        This app requires JavaScript. Please enable it and reload.
+    </noscript>
+</body>
+
+</html>

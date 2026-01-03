@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="420" viewBox="0 0 900 420">
+  <style>
+    .box { fill: #ffffff; stroke: #111827; stroke-width: 2; }
+    .title { font: 700 18px sans-serif; fill: #111827; }
+    .label { font: 14px sans-serif; fill: #111827; }
+    .arrow { stroke: #111827; stroke-width: 2; marker-end: url(#m); }
+  </style>
+
+  <defs>
+    <marker id="m" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#111827" />
+    </marker>
+  </defs>
+
+  <text x="30" y="40" class="title">Multi-tenant SaaS Platform – Architecture</text>
+
+  <rect x="60" y="90" width="240" height="120" rx="10" class="box" />
+  <text x="90" y="130" class="label">Frontend</text>
+  <text x="90" y="155" class="label">React + Vite</text>
+  <text x="90" y="180" class="label">Port 3000</text>
+
+  <rect x="330" y="90" width="240" height="120" rx="10" class="box" />
+  <text x="360" y="130" class="label">Backend API</text>
+  <text x="360" y="155" class="label">Node.js + Express</text>
+  <text x="360" y="180" class="label">Port 5000</text>
+
+  <rect x="600" y="90" width="240" height="120" rx="10" class="box" />
+  <text x="630" y="130" class="label">Database</text>
+  <text x="630" y="155" class="label">PostgreSQL</text>
+  <text x="630" y="180" class="label">Port 5432</text>
+
+  <line x1="300" y1="150" x2="330" y2="150" class="arrow" />
+  <text x="260" y="140" class="label">HTTP (JWT)</text>
+
+  <line x1="570" y1="150" x2="600" y2="150" class="arrow" />
+  <text x="535" y="140" class="label">SQL</text>
+
+  <rect x="60" y="250" width="780" height="120" rx="10" class="box" />
+  <text x="90" y="290" class="label">Init flow on backend startup: ensure extensions → run migrations → run idempotent seeds → health ready</text>
+</svg>
