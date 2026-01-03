@@ -111,3 +111,4 @@ Source SVGs are also included for crisp zooming:
 ## Backend Overview
 ## Frontend Overview
 ## Docker Usage
+## Deployment Notes
