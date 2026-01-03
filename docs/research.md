@@ -1,309 +1,373 @@
-# Research (simple): Multi‑tenancy, security, and stack choices
+# Research (Simple): Multi-Tenancy, Security, and Stack Choices
 
-This project is a small, production‑style multi‑tenant SaaS starter. The key idea is: **one running app serves multiple companies (tenants)**, and the app must guarantee that tenant data never leaks across tenants.
+This project is a **small, production-style multi-tenant SaaS starter**.  
+The core idea is simple:
 
-This document is intentionally written in simple language. It still covers the three things the rubric asks for:
-1) how multi‑tenancy is handled, 2) why the stack was chosen, and 3) the main security considerations.
+> **One running application serves multiple companies (tenants), and tenant data must never leak across tenants.**
 
-## 1) What “multi‑tenant” means (plain English)
+This document is intentionally written in **plain language**, while still covering the three points required by the rubric:
+1. How multi-tenancy is handled  
+2. Why the tech stack was chosen  
+3. The main security considerations  
 
-In a multi‑tenant SaaS, different organizations share the same deployed system.
+---
+
+## 1. What “Multi-Tenant” Means (Plain English)
+
+In a multi-tenant SaaS system, **multiple organizations share the same deployed application**.
 
 Each tenant expects:
-- **Isolation:** Tenant A cannot read or change Tenant B’s data.
-- **Fairness:** One tenant should not break the system for everyone.
-- **Security:** authentication (who are you?) and authorization (what can you do?) must always be checked.
-- **Easy operations:** upgrades and deployments should be predictable.
+- **Isolation** – Tenant A cannot see or modify Tenant B’s data
+- **Security** – authentication and authorization are always enforced
+- **Fairness** – one tenant should not break the system for others
+- **Easy operations** – upgrades and deployments should be predictable
 
-The easiest mistake is thinking “multi‑tenant = add a `tenant_id` column.” In reality, multi‑tenancy must show up everywhere:
+A common beginner mistake is thinking:
+
+> “Multi-tenant = just add a `tenant_id` column.”
+
+In reality, multi-tenancy affects:
 - database schema
 - query patterns
-- route authorization checks
-- background work (if any)
-- audit logs
-- frontend rules (show/hide features by role)
+- API authorization logic
+- nested resource validation
+- audit logging
+- frontend feature visibility
 
-## 2) Multi‑tenancy models (and why this project chose one)
+---
 
-There are three common models.
+## 2. Multi-Tenancy Models (and Why This Project Chose One)
 
-### A) One database + one schema + `tenant_id` column (chosen)
-**What it is:** all tenants share the same PostgreSQL database and tables. Tenant-owned rows contain `tenant_id`.
+There are three common approaches.
 
-**Why it’s good here:**
-- Simple to operate and easy to evaluate.
-- Only one set of migrations.
-- Fits the rubric’s “one command: docker-compose up -d” requirement.
+### A) One Database + One Schema + `tenant_id` Column (**Chosen**)
+
+**What it is:**  
+All tenants share the same PostgreSQL database and tables. Every tenant-owned row includes a `tenant_id`.
+
+**Why it fits this project:**
+- Simple to understand and operate
+- Only one set of migrations
+- Matches the rubric’s *“docker-compose up -d”* requirement
+- Easy to evaluate in a demo setting
 
 **Downsides:**
-- The app must be very disciplined. If you forget a tenant filter in a query, you can leak data.
-- A “noisy neighbor” is possible if one tenant runs heavy queries.
+- Requires strict discipline in queries
+- Missing a tenant filter can cause data leaks
+- Risk of a “noisy neighbor” tenant
 
-**How we reduce risk in this project:**
-- Tenant id is taken from the JWT for every request.
-- Routes validate tenant ownership (for example, tasks validate that the project belongs to the same tenant).
-- `super_admin` is separated clearly from tenant roles.
+**Risk reduction in this project:**
+- `tenantId` is always read from the JWT
+- All tenant queries filter by `tenant_id`
+- Parent ownership is validated for nested resources
+- `super_admin` is clearly separated from tenant roles
 
-### B) One database + schema per tenant
-**What it is:** each tenant has its own schema inside the same database.
+---
 
-**Why it’s not chosen here:** it complicates migrations (run for every schema) and makes evaluation more complex.
+### B) One Database + Schema Per Tenant
 
-### C) One database per tenant
-**What it is:** each tenant has its own database.
+**What it is:**  
+Each tenant has its own schema in the same database.
 
-**Why it’s not chosen here:** it is expensive and operationally heavy. It also doesn’t fit the “simple docker-compose demo” goal well.
+**Why not chosen:**  
+Migrations become more complex and must run per schema, which adds operational overhead beyond the rubric’s scope.
 
-## 3) Tenant identification + login flows
+---
 
-This project supports two login styles.
+### C) One Database Per Tenant
 
-### Tenant user login
-Tenant users belong to a tenant (`users.tenant_id` is set). To log in, the backend must know which tenant to use.
+**What it is:**  
+Each tenant has a completely separate database.
 
-We support:
-- `tenantSubdomain` (easy for humans, e.g. `demo`)
-- or `tenantId` (useful for testing)
+**Why not chosen:**  
+Operationally heavy, expensive, and not suitable for a simple Docker-based evaluation project.
 
-Login checks `(tenant_id, email)` and returns a JWT with:
+---
+
+## 3. Tenant Identification and Login Flows
+
+### Tenant User Login
+
+Tenant users belong to a tenant (`users.tenant_id` is set).  
+The backend must know which tenant to authenticate against.
+
+Supported identifiers:
+- `tenantSubdomain` (human-friendly, e.g. `demo`)
+- `tenantId` (useful for testing)
+
+Successful login returns a JWT containing:
 - `userId`
 - `tenantId`
 - `role`
 
-### Super admin login
-The super admin is platform-wide. In the database, `users.tenant_id` is `NULL`.
+---
 
-They log in with only email/password and get a JWT where `tenantId: null`.
+### Super Admin Login
 
-## 4) Authorization (RBAC) in simple terms
+The super admin is **platform-wide**.
 
-RBAC means “role-based access control.” We use three roles:
-- `super_admin`: can do platform-level actions
-- `tenant_admin`: can manage users inside a tenant
-- `user`: regular tenant member
+- `users.tenant_id` is `NULL`
+- Logs in using only email and password
+- Receives a JWT where `tenantId = null`
 
-The main rule is simple:
+This makes it impossible for super admin actions to accidentally mix with tenant-scoped logic.
 
-> if you are not `super_admin`, you may only access rows where `row.tenant_id === token.tenantId`.
+---
 
-This is what prevents cross‑tenant access even if someone guesses IDs.
+## 4. Authorization (RBAC) in Simple Terms
 
-## 5) Data isolation: how it’s implemented
+RBAC means **Role-Based Access Control**.
 
-### A) Every tenant-owned table has `tenant_id`
+Roles:
+- `super_admin`
+- `tenant_admin`
+- `user`
+
+The core rule:
+
+> If you are **not** `super_admin`, you may only access data where  
+> `row.tenant_id === token.tenantId`.
+
+This rule prevents cross-tenant access even if IDs are guessed.
+
+---
+
+## 5. Data Isolation: How It’s Implemented
+
+### A) `tenant_id` on Every Tenant-Owned Table
+
 Key tables:
+- `users.tenant_id` (nullable for super admin)
 - `projects.tenant_id`
 - `tasks.tenant_id`
-- `users.tenant_id` (nullable for super admin)
 
-This makes tenant filtering fast and consistent:
-`WHERE tenant_id = $1`.
+This enables consistent filtering:
+---
 
-### B) Nested resources validate parent tenant ownership
-Tasks belong to projects. So before listing or creating tasks, the backend first loads the project and verifies it belongs to the same tenant.
+### B) Parent Ownership Validation for Nested Resources
 
-This blocks a common bug:
-“I filtered tasks by projectId but forgot to verify that project belongs to the tenant.”
+Tasks belong to projects.
 
-### C) Constraints keep data clean
-Constraints do not replace authorization, but they prevent invalid states.
+Before creating or listing tasks:
+1. Load the project
+2. Verify the project belongs to the same tenant
 
-In this project:
-- task status is limited to: `todo | in_progress | done | cancelled`
-- task priority is limited to: `low | medium | high | urgent`
+This prevents a common bug:
+> “I filtered tasks by projectId but forgot to verify project ownership.”
 
-## 6) Subscription plans and limits
+---
 
-Many SaaS products use plans (free/pro/enterprise) and limits.
+### C) Constraints for Valid States
 
-Here:
-- tenants store `subscription_plan`
-- tenants store `max_users` and `max_projects`
+Constraints help keep data clean:
+- task status: `todo | in_progress | done | cancelled`
+- task priority: `low | medium | high | urgent`
+
+Constraints do not replace authorization, but they prevent invalid data.
+
+---
+
+## 6. Subscription Plans and Limits
+
+Tenants store:
+- `subscription_plan`
+- `max_users`
+- `max_projects`
 
 The backend enforces:
 - user creation checks `max_users`
 - project creation checks `max_projects`
 
-This shows the difference between:
-- **authorization** (who is allowed)
-- **entitlements** (what the tenant is allowed)
+This demonstrates the difference between:
+- **Authorization** – who is allowed
+- **Entitlements** – what the tenant is allowed
 
-## 7) Security considerations (simple checklist)
+---
 
-### A) Password hashing
-Passwords are stored as bcrypt hashes. We never store plaintext passwords.
+## 7. Security Considerations (Checklist)
 
-Why bcrypt? It is intentionally slow, so brute force is harder.
+### A) Password Hashing
+- Passwords stored as bcrypt hashes
+- No plaintext passwords
+- bcrypt is intentionally slow to resist brute force attacks
 
-### B) JWT tokens
-JWTs are signed with `JWT_SECRET`.
+---
 
-Tokens include:
-- `userId`, `tenantId`, `role`
+### B) JWT Tokens
+- Signed with `JWT_SECRET`
+- Contain `userId`, `tenantId`, `role`
+- Expire after ~24 hours to reduce risk
 
-Tokens expire (default is 24 hours) to reduce long-lived risk.
+---
 
-### C) SQL injection
-All DB calls use parameterized queries (`$1`, `$2`, ...). This avoids string concatenation attacks.
+### C) SQL Injection Prevention
+- All queries use parameterized SQL
+- No string concatenation in queries
+
+---
 
 ### D) CORS
-Under Docker evaluation the browser origin is `http://localhost:3000`, so CORS allows that origin.
+- Docker evaluation origin: `http://localhost:3000`
+- Backend allows this origin explicitly
 
-### E) Input validation
-Endpoints check required fields and return `400` on missing data. For a bigger system you would use a schema library (zod/joi) for consistency.
+---
 
-### F) Audit logging
-The system records audit logs for important actions (login/logout, tenant registration, seed completion marker). This helps debugging and accountability.
+### E) Input Validation
+- Required fields checked
+- Invalid input returns `400`
+- In larger systems, a schema library would be used
 
-### G) What you would add in production (but not needed for the rubric)
-This project focuses on correctness and reproducibility. In a real SaaS you would typically also add:
-- rate limiting for login
-- account lockouts/cooldowns
-- 2FA for super admins
-- proper secrets management (no committed secrets)
+---
 
-## 8) Why this tech stack
+### F) Audit Logging
+- Important actions are logged:
+  - login / logout
+  - tenant registration
+  - seed completion marker
+
+---
+
+### G) Production-Grade Additions (Out of Scope)
+- rate limiting
+- account lockouts
+- 2FA
+- secrets management systems
+
+---
+
+## 8. Why This Tech Stack
 
 ### Backend: Node.js + Express
-- Simple and explicit routing (good for an endpoint-based rubric)
+- Simple, explicit routing
+- Easy to reason about authorization
 - Easy to dockerize
 
+---
+
 ### Database: PostgreSQL
-- Strong constraints and relational integrity
-- Great fit for tenant_id filtering
+- Strong relational integrity
+- Constraints and indexing support
+- Ideal for `tenant_id` filtering
+
+---
 
 ### Frontend: React + Vite
-- Simple SPA pages for login, dashboard, projects, users
-- Fast build and good dev experience
+- Simple SPA for dashboards
+- Fast builds and good developer experience
+
+---
 
 ### Docker Compose
 - One-command startup
 - Predictable ports
-- Easy evaluation of DB + API + frontend together
+- Easy evaluation of full system
 
-## 9) Operations: automatic migrations + automatic seed
+---
 
-The rubric requires no manual commands.
+## 9. Operations: Automatic Migrations and Seed
 
-On backend start, the app:
-1. ensures extensions (like `pgcrypto`)
-2. applies migrations exactly once
-3. runs idempotent seed data
-4. only then reports ready via `/api/health`
+On backend startup:
+1. Ensure required extensions
+2. Apply migrations
+3. Run idempotent seed scripts
+4. Expose `/api/health` as ready
 
-This means `docker-compose up -d` is enough to bring up a working system.
+This guarantees:
+is enough to start a working system.
 
-## 10) Limitations (what we kept simple)
+---
 
-To keep the project easy to evaluate, we did not implement everything a big SaaS would need.
+## 10. Limitations (Kept Simple Intentionally)
 
-Possible future upgrades:
-- Postgres Row Level Security (RLS) for stronger defense-in-depth
-- refresh tokens + rotation
-- more detailed logging/tracing
-- a full super-admin UI for tenant management
+Not implemented:
+- Postgres Row Level Security (RLS)
+- refresh token rotation
+- advanced logging/tracing
+- full super admin UI
 
-Even with those features missing, the current design is a solid baseline: it clearly demonstrates multi‑tenancy, RBAC, safe dockerized startup, and correct tenant isolation.
+The current design still clearly demonstrates **correct multi-tenancy and RBAC**.
 
-## 11) Performance and “noisy neighbor” concerns
+---
 
-When tenants share the same database and tables, you should think about performance early.
+## 11. Performance and “Noisy Neighbor” Concerns
 
-**The classic risk** is a “noisy neighbor”: one tenant creates many records or runs heavy queries and slows down everyone.
+Shared-table models must consider performance.
 
-Simple ways to reduce that risk (and ideas you can add later):
-- **Indexes that include `tenant_id`:** in a shared-schema model, most queries filter by tenant. Indexes like `(tenant_id, created_at)` or `(tenant_id, id)` help a lot.
-- **Pagination on lists:** project lists, task lists, and user lists should support paging so you don’t accidentally return 10,000 rows.
-- **Reasonable limits:** subscription limits (max users/projects) reduce worst-case load and match SaaS business rules.
-- **Connection pooling:** as you scale, you typically use a pooler so you don’t open too many DB connections.
+Mitigations:
+- indexes that include `tenant_id`
+- pagination for list endpoints
+- subscription limits
+- connection pooling (future)
 
-For this evaluation project, the dataset is small, but the mental model is important: multi-tenant correctness is not only security; it is also predictable performance.
+Correctness comes first; predictable performance comes next.
 
-## 12) Tenant lifecycle (create, grow, leave)
+---
 
-Real SaaS systems have tenant lifecycle needs that are easy to forget:
+## 12. Tenant Lifecycle Considerations
 
 ### A) Provisioning
-When a new tenant signs up, you usually need to:
-- create a tenant row
-- create the first admin user
-- optionally create default projects or settings
+- create tenant
+- create first admin
+- optional defaults
 
-This project’s seed data is basically an example of that process.
+---
 
-### B) Data export
-Tenants often ask for exports (for audits or switching products). With `tenant_id` on every row, exports can be built by filtering tables by tenant.
+### B) Data Export
+Filtering by `tenant_id` enables clean exports.
 
-### C) Deletion and “right to be forgotten”
-If you need to delete a tenant, having `tenant_id` everywhere makes it possible to delete or anonymize data safely (usually in the right order).
+---
 
-This project does not implement a full deletion workflow, but the schema design is compatible with one.
+### C) Tenant Deletion
+`tenant_id` everywhere enables safe deletion or anonymization.
 
-## 13) Threat model: what attacks we are thinking about
+---
 
-Security is easier when you name the threats.
+## 13. Threat Model (What We Defend Against)
 
-Common threats for a SaaS like this:
-
-### A) Cross-tenant data access
-The worst failure is when a user from Tenant A can see Tenant B’s data.
-
+### A) Cross-Tenant Data Access
 Defense layers:
-- tenant checks on every query
-- validating parent/child ownership (project → tasks)
-- optional future upgrade: Postgres RLS
+- tenant-scoped queries
+- parent ownership checks
+- future option: Postgres RLS
 
-### B) Credential attacks
-Attackers may try to guess passwords or reuse leaked passwords.
+---
 
-What we do:
+### B) Credential Attacks
 - bcrypt hashing
-- short token lifetimes (24h)
+- short-lived JWTs
 
-What you’d add later:
-- rate limiting on login
-- 2FA for high-privilege users
+---
 
-### C) Token theft (XSS, local storage)
-In many SPAs, tokens are stored in browser storage for simplicity. The downside is: if you have an XSS bug, an attacker might read the token.
+### C) Token Theft
+Simplified storage for rubric clarity.  
+In production: CSP, HttpOnly cookies, stronger XSS defenses.
 
-This project keeps things simple for the rubric. In a real product you would:
-- avoid unsafe HTML rendering
-- use strong Content Security Policy (CSP)
-- consider HttpOnly cookies instead of localStorage tokens
+---
 
-### D) Privilege escalation
-If a regular user can call an admin-only endpoint, that is a privilege escalation.
+### D) Privilege Escalation
+- role checks per endpoint
+- strict separation of super_admin vs tenant roles
 
-Defense layers:
-- role checks on endpoints
-- clear separation of `super_admin` vs tenant roles
+---
 
-## 14) How we verify tenant isolation (practical testing)
+## 14. Verifying Tenant Isolation
 
-It is not enough to “believe” you scoped queries correctly. You should test it.
+Manual test approach:
+1. Create Tenant A and Tenant B
+2. Create data under Tenant A
+3. Access it using Tenant B credentials
+4. Expect `403` or `404`, never success
 
-Simple test ideas (manual or automated):
-- Create two tenants (Tenant A and Tenant B).
-- Create a project in Tenant A.
-- Log in as a Tenant B user and try to read/update Tenant A’s project.
-- Expected result: **403/404** (depending on your API design), but never a successful response.
+---
 
-The same applies to tasks:
-- create tasks under a project in Tenant A
-- try to access them using Tenant B credentials
-- verify the backend blocks it
+## 15. Why Simple Documentation Matters
 
-This project’s routing style (always using `tenantId` from JWT) makes these tests straightforward.
+Clear documentation reduces security bugs.
 
-## 15) Why simple documentation matters
+Key rules repeated everywhere:
+- always trust `tenantId` from JWT
+- never trust client-provided tenant identifiers
+- always validate parent ownership
+- keep role rules explicit
 
-One last point: clear docs are a security feature.
-
-When teams misunderstand how tenants are scoped, they accidentally add endpoints that leak data. Keeping the rules simple helps:
-- always use `tenantId` from the token
-- never trust client-provided tenant ids for authorization
-- validate parent ownership for nested resources
-- keep role rules explicit and consistent
-
-That is exactly the mindset this project tries to demonstrate.
+This project is designed to demonstrate that mindset clearly.
